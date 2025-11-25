@@ -1,0 +1,181 @@
+# -------------------------------------------------------------------
+# Global OBSB Settings
+# -------------------------------------------------------------------
+global:
+  clusterName: "obsb-dev"
+  storageClass: ""                     # Set this for your cloud/homelab
+  namespace: "obsb-core"
+
+# -------------------------------------------------------------------
+# ZABBIX CONFIG
+# -------------------------------------------------------------------
+zabbix:
+  enabled: true
+
+  server:
+    replicaCount: 1
+    resources:
+      limits:
+        cpu: 300m
+        memory: 512Mi
+      requests:
+        cpu: 100m
+        memory: 256Mi
+
+  frontend:
+    service:
+      type: ClusterIP
+
+  database:
+    type: "postgresql"
+    postgresql:
+      enabled: true
+      primary:
+        persistence:
+          size: 5Gi
+
+# -------------------------------------------------------------------
+# OPENSEARCH CONFIG
+# -------------------------------------------------------------------
+opensearch:
+  enabled: true
+
+  clusterName: "obsb-opensearch"
+  masterService: "opensearch"
+  replicas: 1
+
+  sysctlInit:
+    enabled: true
+
+  persistence:
+    enabled: true
+    size: 10Gi
+
+  resources:
+    requests:
+      cpu: 200m
+      memory: 1Gi
+    limits:
+      cpu: 500m
+      memory: 2Gi
+
+# -------------------------------------------------------------------
+# OPENSEARCH DASHBOARDS CONFIG
+# -------------------------------------------------------------------
+dashboards:
+  enabled: true
+
+  replicaCount: 1
+
+  opensearchHosts: "http://obsb-opensearch:9200"
+
+  service:
+    type: ClusterIP
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+
+# -------------------------------------------------------------------
+# LOGSTASH CONFIG
+# -------------------------------------------------------------------
+logstash:
+  enabled: true
+
+  image: "docker.elastic.co/logstash/logstash:8.12.0"
+  replicaCount: 1
+
+  # Basic pass-through pipeline that takes logs -> OpenSearch
+  logstashPipeline:
+    logstash.conf: |
+      input {
+        beats {
+          port => 5044
+        }
+      }
+      filter {
+        # Add your pipeline logic here
+      }
+      output {
+        opensearch {
+          hosts => ["http://obsb-opensearch:9200"]
+          index => "logs-%{+YYYY.MM.dd}"
+        }
+      }
+
+  service:
+    type: ClusterIP
+    ports:
+      - name: beats
+        port: 5044
+        targetPort: 5044
+
+# -------------------------------------------------------------------
+# TRIVY SCANNER CONFIG
+# -------------------------------------------------------------------
+trivy:
+  enabled: true
+
+  image: "aquasec/trivy:latest"
+
+  imageScanning:
+    enabled: true
+    schedule: "0 */6 * * *"         # every 6 hours
+    imageList:
+      - "nginx:*"
+      - "python:*"                  # Example values
+
+  k8sScanning:
+    enabled: true
+    schedule: "0 2 * * *"           # nightly
+    namespaces:
+      - "default"
+      - "obsb-core"
+
+# -------------------------------------------------------------------
+# STACKS CONFIG (Monitor ANY stack via helm values)
+# -------------------------------------------------------------------
+stacks: []
+# Example:
+# stacks:
+#   - name: "django-app"
+#     namespace: "prod-django"
+#
+#     logs:
+#       enabled: true
+#       selectors:
+#         matchLabels:
+#           app: django-web
+#       multiline:
+#         pattern: "^\d{4}-\d{2}-\d{2}"
+#         negate: true
+#         match: "after"
+#
+#     metrics:
+#       enabled: true
+#       mode: daemonset        # or 'sidecar'
+#       zabbixHostGroups:
+#         - Django
+#         - Production
+#
+#     security:
+#       enabled: true
+#       imagePatterns:
+#         - "registry.local/prod/django:*"
+#
+# -------------------------------------------------------------------
+# INGRESS CONFIG (Optional, adjustable per environment)
+# -------------------------------------------------------------------
+ingress:
+  enabled: false
+
+  className: "nginx"
+
+  dashboards:
+    host: "dashboards.local"
+    path: /
+
+  zabbix:
+    host: "zabbix.local"
+    path: /

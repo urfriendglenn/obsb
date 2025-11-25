@@ -1,0 +1,34 @@
+apiVersion: v2
+name: obsb
+description: "Observability in a Box (OBSB) – Zabbix + OpenSearch + Logstash + Dashboards + Security Scanning"
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+
+# Keep this true so dependencies are packaged properly
+dependencies:
+  - name: zabbix
+    version: 1.x.x
+    repository: "https://cetic.github.io/helm-charts"        # Common Zabbix chart repo; adjustable
+    condition: zabbix.enabled
+
+  - name: opensearch
+    version: 2.x.x
+    repository: "https://opensearch-project.github.io/helm-charts/"
+    condition: opensearch.enabled
+
+  - name: opensearch-dashboards
+    version: 2.x.x
+    repository: "https://opensearch-project.github.io/helm-charts/"
+    condition: dashboards.enabled
+
+  - name: logstash
+    version: 8.x.x
+    repository: "https://helm.elastic.co"
+    condition: logstash.enabled
+
+  # Lightweight subchart you create for scan jobs
+  - name: trivy-scanner
+    version: 0.1.0
+    repository: "file://../trivy-scanner"
+    condition: trivy.enabled
