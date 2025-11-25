@@ -1,0 +1,138 @@
+###############################################
+# OS / EDITOR / GENERAL
+###############################################
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*.tmp
+*.bak
+*.log
+*.out
+
+# JetBrains / VSCode
+.idea/
+.vscode/
+.vscode-test/
+*.code-workspace
+
+# Python venvs
+venv/
+.env/
+.envrc
+__pycache__/
+
+# Node (if you end up adding dashboards or UI helpers)
+node_modules/
+npm-debug.log
+
+###############################################
+# HELM & KUBERNETES
+###############################################
+
+# Helm chart build directory
+charts/**/charts/
+charts/**/tmpcharts/
+charts/**/Chart.lock
+charts/**/requirements.lock
+
+# Helm package artifacts
+*.tgz
+
+# Helm test logs
+helm-test-results/
+
+# Rendered manifests
+manifests-rendered/
+templates-rendered/
+*.yaml.rendered
+*.yml.rendered
+
+# Kustomize build artifacts
+kustomize.build.yaml
+kustomize.out
+*.kustomize.tmp
+
+# Local Kubernetes config
+kubeconfig
+config
+*.kubeconfig
+
+###############################################
+# OBSB-SPECIFIC (scan results, logs, etc.)
+###############################################
+
+# Trivy scan output files
+trivy-reports/
+*.trivy.json
+*.trivy.txt
+*.trivy.sarif
+
+# Logstash pipeline debug output
+logstash-debug/
+pipeline-debug/
+
+# OpenSearch snapshots or dumps
+opensearch-snapshots/
+opensearch-backup/
+*.snapshot
+
+###############################################
+# CONTROLLER / OPERATOR DEVELOPMENT (optional)
+###############################################
+
+# Python build artifacts
+*.pyc
+*.pyo
+*.pyd
+build/
+dist/
+.eggs/
+*.egg-info/
+pip-wheel-metadata/
+
+# Go build artifacts (if operator is in Go)
+bin/
+cmd/**/bin/
+*.exe
+*.dll
+*.so
+*.test
+
+###############################################
+# CONTAINER / DEVOPS
+###############################################
+
+# Docker build artifacts
+*.tar
+*.img
+docker-build/
+docker-cache/
+
+# Tilt / Skaffold (if used during local dev)
+.tiltbuild/
+.skaffold/
+.skaffold_cache/
+
+###############################################
+# DOCUMENTATION
+###############################################
+
+# MkDocs / Sphinx build
+site/
+docs/_build/
+
+###############################################
+# MISC
+###############################################
+
+# Environment files
+*.env.local
+*.env.development
+*.env.production
+
+# Temporary scratch files
+scratch/
+tmp/
+temp/
+dev-notes/
