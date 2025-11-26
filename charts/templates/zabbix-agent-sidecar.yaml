@@ -1,0 +1,24 @@
+{{- if .Values.zabbix.enabled }}
+{{- range .Values.stacks }}
+{{- if and .metrics.enabled (eq .metrics.mode "sidecar") }}
+
+# This config patch is intended to be merged via Helm post-renderer OR via operator
+# (In v2 you might replace this with a mutating webhook)
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ printf "zabbix-agent-sidecar-%s" .name | trunc 63 }}
+data:
+  inject.yaml: |
+    containers:
+      - name: zabbix-agent
+        image: zabbix/zabbix-agent:latest
+        env:
+          - name: ZBX_SERVER_HOST
+            value: "{{ $.Values.zabbix.serverHost | default "zabbix" }}"
+          - name: ZBX_HOSTNAME
+            value: "{{ .name }}"
+{{- end }}
+{{- end }}
+{{- end }}

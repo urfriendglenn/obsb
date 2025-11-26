@@ -1,0 +1,18 @@
+Trivy Scanner Subchart Installed Successfully!
+
+Image Scanning:
+  Schedule: {{ .Values.imageScanning.schedule }}
+  Images:
+    {{- range .Values.imageScanning.imageList }}
+    - {{ . }}
+    {{- end }}
+
+Kubernetes Scanning:
+  Schedule: {{ .Values.k8sScanning.schedule }}
+  Namespaces:
+    {{- range .Values.k8sScanning.namespaces }}
+    - {{ . }}
+    {{- end }}
+
+Scan results are stored in ephemeral containers' /results directory.
+Integrate these with OpenSearch indexing in OBSB v2 for long-term storage.

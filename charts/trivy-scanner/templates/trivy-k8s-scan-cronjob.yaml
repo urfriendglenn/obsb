@@ -1,0 +1,46 @@
+{{- if .Values.k8sScanning.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "trivy-scanner.fullname" . }}-k8s-scan
+  labels:
+    {{- include "trivy-scanner.labels" . | nindent 4 }}
+spec:
+  schedule: "{{ .Values.k8sScanning.schedule }}"
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            {{- include "trivy-scanner.labels" . | nindent 12 }}
+        spec:
+          restartPolicy: Never
+          serviceAccountName: default
+          containers:
+            - name: trivy-k8s-scan
+              image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              command:
+                - "sh"
+                - "-c"
+                - |
+                  mkdir -p {{ .Values.k8sScanning.outputDir }};
+                  echo "Starting Trivy K8s scan...";
+
+                  trivy k8s cluster \
+                    --format json \
+                    --output {{ .Values.k8sScanning.outputDir }}/k8s-cluster.json;
+
+                  {{- range .Values.k8sScanning.namespaces }}
+                  trivy k8s --namespace {{ . }} \
+                    --format json \
+                    --output {{ $.Values.k8sScanning.outputDir }}/k8s-{{ . }}.json;
+                  {{- end }}
+
+              volumeMounts:
+                - name: results
+                  mountPath: {{ .Values.k8sScanning.outputDir }}
+          volumes:
+            - name: results
+              emptyDir: {}
+{{- end }}

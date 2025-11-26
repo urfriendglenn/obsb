@@ -1,0 +1,36 @@
+{{- if .Values.logstash.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "obsb.fullname" . }}-logstash-pipelines
+  labels:
+    {{- include "obsb.labels" . | nindent 4 }}
+data:
+  logstash.conf: |
+    input {
+      beats {
+        port => 5044
+      }
+    }
+
+    filter {
+      # Add stack tagging based on log fields from Fluent Bit or Beats
+      if [kubernetes][namespace] {
+        mutate {
+          add_field => {
+            "obsb_stack" => "%{[kubernetes][namespace]}"
+          }
+        }
+      }
+    }
+
+    output {
+      opensearch {
+        hosts => ["http://{{ .Values.opensearch.host | default "obsb-opensearch" }}:9200"]
+        index => "logs-%{obsb_stack}-%{+YYYY.MM.dd}"
+        user => "{{ .Values.opensearch.username | default "" }}"
+        password => "{{ .Values.opensearch.password | default "" }}"
+        ssl => false
+      }
+    }
+{{- end }}

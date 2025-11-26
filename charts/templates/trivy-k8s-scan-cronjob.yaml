@@ -1,0 +1,26 @@
+{{- if .Values.trivy.k8sScanning.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: trivy-k8s-scan
+spec:
+  schedule: "{{ .Values.trivy.k8sScanning.schedule }}"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: Never
+          serviceAccountName: default
+          containers:
+            - name: trivy
+              image: {{ .Values.trivy.image }}
+              args:
+                - "k8s"
+                - "--report=all"
+                - "--timeout=5m"
+                - "--format=json"
+                - "--output=/results/k8s-scan.json"
+          volumes:
+            - name: results
+              emptyDir: {}
+{{- end }}

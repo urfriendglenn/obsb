@@ -1,0 +1,34 @@
+zabbix:
+  postgresql:
+    image:
+      registry: docker.io
+      repository: postgres
+      tag: "15"
+      pullPolicy: IfNotPresent
+
+    auth:
+      enablePostgresUser: true
+      postgresPassword: "postgrespass"
+      username: "zabbix"
+      password: "zabbixpass"
+      database: "zabbix"
+
+    primary:
+      extraEnvVars:
+        - name: POSTGRES_USER
+          value: "zabbix"
+        - name: POSTGRES_PASSWORD
+          value: "zabbixpass"
+        - name: POSTGRES_DB
+          value: "zabbix"
+
+      containerSecurityContext:
+        enabled: false
+      podSecurityContext:
+        enabled: false
+
+    readReplicas:
+      containerSecurityContext:
+        enabled: false
+      podSecurityContext:
+        enabled: false

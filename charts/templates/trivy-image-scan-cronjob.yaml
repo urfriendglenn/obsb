@@ -1,0 +1,29 @@
+{{- if .Values.trivy.imageScanning.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: trivy-image-scan
+spec:
+  schedule: "{{ .Values.trivy.imageScanning.schedule }}"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: trivy
+              image: {{ .Values.trivy.image }}
+              args:
+                - "image"
+                - "--format=json"
+                - "--output=/results/image-scan.json"
+                {{- range .Values.trivy.imageScanning.imageList }}
+                - "{{ . }}"
+                {{- end }}
+              volumeMounts:
+                - name: results
+                  mountPath: /results
+          volumes:
+            - name: results
+              emptyDir: {}
+{{- end }}

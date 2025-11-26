@@ -1,0 +1,43 @@
+# Global image name for Trivy
+image:
+  repository: aquasec/trivy
+  tag: latest
+  pullPolicy: IfNotPresent
+
+# -------------------------------------------------------------------
+# IMAGE SCANNING
+# -------------------------------------------------------------------
+imageScanning:
+  enabled: true
+  schedule: "0 */6 * * *"   # every 6 hours
+
+  # List of container images you want Trivy to analyze.
+  imageList:
+    - "nginx:latest"
+    - "python:3.11-slim"
+
+  # Default output location inside the pod
+  outputDir: /results
+
+# -------------------------------------------------------------------
+# KUBERNETES CONFIG SCANNING
+# -------------------------------------------------------------------
+k8sScanning:
+  enabled: true
+  schedule: "0 2 * * *"  # nightly at 2 AM
+  namespaces:
+    - default
+    - kube-system
+  outputDir: /results
+
+# -------------------------------------------------------------------
+# OUTPUT CONFIG
+# -------------------------------------------------------------------
+
+# Optionally push results to OpenSearch (v2 feature for you)
+results:
+  toOpenSearch: false
+  host: "obsb-opensearch"
+  port: 9200
+
+resources: {}

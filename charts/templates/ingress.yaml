@@ -1,0 +1,29 @@
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: obsb-ingress
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  rules:
+    - host: {{ .Values.ingress.dashboards.host }}
+      http:
+        paths:
+          - path: {{ .Values.ingress.dashboards.path }}
+            pathType: Prefix
+            backend:
+              service:
+                name: opensearch-dashboards
+                port:
+                  number: 5601
+    - host: {{ .Values.ingress.zabbix.host }}
+      http:
+        paths:
+          - path: {{ .Values.ingress.zabbix.path }}
+            pathType: Prefix
+            backend:
+              service:
+                name: zabbix
+                port:
+                  number: 80
+{{- end }}

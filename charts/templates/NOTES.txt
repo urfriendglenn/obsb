@@ -1,0 +1,15 @@
+Thank you for installing Observability in a Box (OBSB)!
+
+To access OpenSearch Dashboards:
+  kubectl port-forward svc/opensearch-dashboards 5601:5601 -n {{ .Release.Namespace }}
+
+To access Zabbix:
+  kubectl port-forward svc/zabbix 8080:80 -n {{ .Release.Namespace }}
+
+Custom Stacks:
+  Your stacks definitions have been loaded from values.yaml and rendered into:
+    ConfigMap: obsb-stacks
+  These generate:
+    - Zabbix agents (DaemonSet or Sidecar)
+    - Logshipper inputs
+    - Future CRD/operator-based resources

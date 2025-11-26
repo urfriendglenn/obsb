@@ -1,0 +1,33 @@
+{{- if .Values.logging.enabled }}
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: logshipper
+spec:
+  selector:
+    matchLabels:
+      app: logshipper
+  template:
+    metadata:
+      labels:
+        app: logshipper
+    spec:
+      serviceAccountName: default
+      containers:
+        - name: fluent-bit
+          image: cr.fluentbit.io/fluent/fluent-bit:2.1
+          args: ["-c", "/fluent-bit/etc/fluent-bit.conf"]
+          volumeMounts:
+            - name: config
+              mountPath: /fluent-bit/etc/
+            - name: varlog
+              mountPath: /var/log
+              readOnly: true
+      volumes:
+        - name: config
+          configMap:
+            name: logshipper-config
+        - name: varlog
+          hostPath:
+            path: /var/log
+{{- end }}

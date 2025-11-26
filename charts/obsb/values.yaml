@@ -1,72 +1,107 @@
-# -------------------------------------------------------------------
-# Global OBSB Settings
-# -------------------------------------------------------------------
+# ============================================================
+# Global
+# ============================================================
+
 global:
   clusterName: "obsb-dev"
-  storageClass: ""                     # Set this for your cloud/homelab
-  namespace: "obsb-core"
+  storageClass: "standard"   # Your Kind default SC (NOT local-path)
 
-# -------------------------------------------------------------------
+# ============================================================
 # ZABBIX CONFIG
-# -------------------------------------------------------------------
+# ============================================================
+
 zabbix:
   enabled: true
 
   server:
     replicaCount: 1
-    resources:
-      limits:
-        cpu: 300m
-        memory: 512Mi
-      requests:
-        cpu: 100m
-        memory: 256Mi
+    env:
+      DB_SERVER_HOST: "obsb-postgresql"
+      DB_SERVER_PORT: "5432"
+      POSTGRES_USER: "zabbix"
+      POSTGRES_PASSWORD: "zabbix"
+      POSTGRES_DB: "zabbix"
 
   frontend:
     service:
       type: ClusterIP
+    env:
+      DB_SERVER_HOST: "obsb-postgresql"
+      DB_SERVER_PORT: "5432"
+      POSTGRES_USER: "zabbix"
+      POSTGRES_PASSWORD: "zabbix"
+      POSTGRES_DB: "zabbix"
+
+  proxy:
+    enabled: true
 
   database:
-    type: "postgresql"
-    postgresql:
-      enabled: true
-      primary:
-        persistence:
-          size: 5Gi
+    type: postgresql
 
-# -------------------------------------------------------------------
-# OPENSEARCH CONFIG
-# -------------------------------------------------------------------
+  # ✔ REAL OVERRIDE PATH for PostgreSQL (inside Zabbix chart)
+  postgresql:
+    enabled: true
+
+    image:
+      registry: docker.io
+      repository: bitnami/postgresql
+      tag: "15.6.0-debian-12-r7"
+      pullPolicy: IfNotPresent
+
+    auth:
+      username: zabbix
+      password: zabbix
+      database: zabbix
+
+    primary:
+      persistence:
+        enabled: true
+        storageClass: "standard"
+        size: 1Gi
+
+
+# ============================================================
+# OPENSEARCH
+# ============================================================
+
 opensearch:
   enabled: true
 
-  clusterName: "obsb-opensearch"
-  masterService: "opensearch"
   replicas: 1
+  clusterName: "obsb-opensearch"
 
   sysctlInit:
-    enabled: true
+    enabled: false
 
   persistence:
     enabled: true
-    size: 10Gi
+    size: 5Gi
+    storageClass: "standard"
 
   resources:
     requests:
       cpu: 200m
-      memory: 1Gi
+      memory: 512Mi
     limits:
       cpu: 500m
-      memory: 2Gi
+      memory: 1Gi
 
-# -------------------------------------------------------------------
-# OPENSEARCH DASHBOARDS CONFIG
-# -------------------------------------------------------------------
+  roles:
+    - master
+    - ingest
+    - data
+
+  opensearchJavaOpts: "-Xms512m -Xmx512m"
+
+
+# ============================================================
+# OPENSEARCH DASHBOARDS
+# ============================================================
+
 dashboards:
   enabled: true
 
   replicaCount: 1
-
   opensearchHosts: "http://obsb-opensearch:9200"
 
   service:
@@ -77,25 +112,26 @@ dashboards:
       cpu: 100m
       memory: 256Mi
 
-# -------------------------------------------------------------------
-# LOGSTASH CONFIG
-# -------------------------------------------------------------------
+
+# ============================================================
+# LOGSTASH (with correct OpenSearch plugin)
+# ============================================================
+
 logstash:
   enabled: true
 
-  image: "docker.elastic.co/logstash/logstash:8.12.0"
+  image: "opensearchproject/logstash-oss-with-opensearch-output-plugin"
+  imageTag: "7.16.3"
+  imagePullPolicy: "IfNotPresent"
+
   replicaCount: 1
 
-  # Basic pass-through pipeline that takes logs -> OpenSearch
   logstashPipeline:
     logstash.conf: |
       input {
         beats {
           port => 5044
         }
-      }
-      filter {
-        # Add your pipeline logic here
       }
       output {
         opensearch {
@@ -111,9 +147,11 @@ logstash:
         port: 5044
         targetPort: 5044
 
-# -------------------------------------------------------------------
-# TRIVY SCANNER CONFIG
-# -------------------------------------------------------------------
+
+# ============================================================
+# TRIVY SCANNER
+# ============================================================
+
 trivy:
   enabled: true
 
@@ -121,61 +159,58 @@ trivy:
 
   imageScanning:
     enabled: true
-    schedule: "0 */6 * * *"         # every 6 hours
+    schedule: "0 */6 * * *"
     imageList:
-      - "nginx:*"
-      - "python:*"                  # Example values
+      - "nginx:latest"
+      - "python:3.11-slim"
+    outputDir: /results
 
   k8sScanning:
     enabled: true
-    schedule: "0 2 * * *"           # nightly
+    schedule: "0 2 * * *"
     namespaces:
-      - "default"
-      - "obsb-core"
+      - default
+      - obsb-core
+    outputDir: /results
 
-# -------------------------------------------------------------------
-# STACKS CONFIG (Monitor ANY stack via helm values)
-# -------------------------------------------------------------------
-stacks: []
-# Example:
+
+# ============================================================
+# LOGGING (Fluent Bit / logshipper)
+# ============================================================
+
+logging:
+  enabled: true
+
+
+# ============================================================
+# STACKS (EXAMPLE COMMENTED)
+# ============================================================
+
 # stacks:
-#   - name: "django-app"
-#     namespace: "prod-django"
-#
+#   - name: "example-app"
+#     namespace: "default"
 #     logs:
 #       enabled: true
-#       selectors:
-#         matchLabels:
-#           app: django-web
-#       multiline:
-#         pattern: "^\d{4}-\d{2}-\d{2}"
-#         negate: true
-#         match: "after"
-#
 #     metrics:
 #       enabled: true
-#       mode: daemonset        # or 'sidecar'
-#       zabbixHostGroups:
-#         - Django
-#         - Production
-#
 #     security:
 #       enabled: true
-#       imagePatterns:
-#         - "registry.local/prod/django:*"
-#
-# -------------------------------------------------------------------
-# INGRESS CONFIG (Optional, adjustable per environment)
-# -------------------------------------------------------------------
+
+stacks: []
+
+
+# ============================================================
+# INGRESS
+# ============================================================
+
 ingress:
   enabled: false
-
   className: "nginx"
 
   dashboards:
-    host: "dashboards.local"
+    host: dashboards.local
     path: /
 
   zabbix:
-    host: "zabbix.local"
+    host: zabbix.local
     path: /

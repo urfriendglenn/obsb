@@ -1,0 +1,29 @@
+{{- if .Values.zabbix.enabled }}
+{{- range $stack := .Values.stacks }}
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ printf "zabbix-agent-config-%s" $stack.name | trunc 63 }}
+  labels:
+    {{- include "obsb.labels" $ | nindent 4 }}
+data:
+  zabbix_agentd.conf: |
+    Server={{ $.Values.zabbix.serverHost | default "zabbix" }}
+    ServerActive={{ $.Values.zabbix.serverHost | default "zabbix" }}
+    Hostname={{ $stack.name }}
+    HostMetadataItems=system.uname
+
+    {{- if $stack.metrics.zabbixHostGroups }}
+    # Host Groups for organizing in Zabbix UI
+    {{- range $stack.metrics.zabbixHostGroups }}
+    HostGroups={{ . }}
+    {{- end }}
+    {{- end }}
+
+    # Basic template linking
+    Include=/etc/zabbix/zabbix_agentd.d/*.conf
+
+---
+{{- end }}
+{{- end }}

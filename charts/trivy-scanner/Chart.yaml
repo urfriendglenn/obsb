@@ -1,0 +1,10 @@
+apiVersion: v2
+name: trivy-scanner
+description: "A lightweight Helm chart for Trivy-based image and Kubernetes security scanning."
+type: application
+version: 0.1.0
+appVersion: "0.52.0"
+
+maintainers:
+  - name: Glenn Lewis
+    email: glelewis90@gmail.com

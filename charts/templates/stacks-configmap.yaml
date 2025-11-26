@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: obsb-stacks
+data:
+  stacks.yaml: |
+    stacks:
+    {{- toYaml .Values.stacks | nindent 6 }}

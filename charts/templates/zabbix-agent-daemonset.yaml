@@ -1,0 +1,40 @@
+{{- if .Values.zabbix.enabled }}
+{{- range .Values.stacks }}
+{{- if and .metrics.enabled (eq .metrics.mode "daemonset") }}
+
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ printf "zabbix-agent-%s" .name | trunc 63 }}
+  labels:
+    {{- include "obsb.labels" $ | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      app: zabbix-agent
+      stack: {{ .name }}
+  template:
+    metadata:
+      labels:
+        app: zabbix-agent
+        stack: {{ .name }}
+    spec:
+      containers:
+        - name: zabbix-agent
+          image: zabbix/zabbix-agent:latest
+          env:
+            - name: ZBX_SERVER_HOST
+              value: "{{ $.Values.zabbix.serverHost | default "zabbix" }}"
+            - name: ZBX_HOSTNAME
+              value: "{{ .name }}"
+          volumeMounts:
+            - name: host-root
+              mountPath: /rootfs
+              readOnly: true
+      volumes:
+        - name: host-root
+          hostPath:
+            path: /
+{{- end }}
+{{- end }}
+{{- end }}

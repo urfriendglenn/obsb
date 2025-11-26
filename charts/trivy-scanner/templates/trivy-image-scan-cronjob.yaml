@@ -1,0 +1,39 @@
+{{- if .Values.imageScanning.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "trivy-scanner.fullname" . }}-image-scan
+  labels:
+    {{- include "trivy-scanner.labels" . | nindent 4 }}
+spec:
+  schedule: "{{ .Values.imageScanning.schedule }}"
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            {{- include "trivy-scanner.labels" . | nindent 12 }}
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: trivy-image-scan
+              image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              command:
+                - "sh"
+                - "-c"
+                - |
+                  mkdir -p {{ .Values.imageScanning.outputDir }};
+                  echo "Starting Trivy image scan...";
+
+                  {{- range .Values.imageScanning.imageList }}
+                  trivy image --format json --output {{ $.Values.imageScanning.outputDir }}/{{ . | replace ":" "-" }}.json {{ . }};
+                  {{- end }}
+
+              volumeMounts:
+                - name: results
+                  mountPath: {{ .Values.imageScanning.outputDir }}
+          volumes:
+            - name: results
+              emptyDir: {}
+{{- end }}
