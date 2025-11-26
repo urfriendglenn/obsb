@@ -13,8 +13,31 @@ global:
 zabbix:
   enabled: true
 
+  imagePullSecrets:
+    - name: dockerhub-secret
+
+  # Global DB settings for all Zabbix components
+  DB_SERVER_HOST: "obsb-postgresql"
+  DB_SERVER_PORT: "5432"
+  POSTGRES_USER: "zabbix"
+  POSTGRES_PASSWORD: "zabbix"
+  POSTGRES_DB: "zabbix"
+
+  zabbixserver:
+    replicaCount: 1
+    DB_SERVER_HOST: "obsb-postgresql"
+    DB_SERVER_PORT: "5432"
+    POSTGRES_USER: "zabbix"
+    POSTGRES_PASSWORD: "zabbix"
+    POSTGRES_DB: "zabbix"
+
   server:
     replicaCount: 1
+    DB_SERVER_HOST: "obsb-postgresql"
+    DB_SERVER_PORT: "5432"
+    POSTGRES_USER: "zabbix"
+    POSTGRES_PASSWORD: "zabbix"
+    POSTGRES_DB: "zabbix"
     env:
       DB_SERVER_HOST: "obsb-postgresql"
       DB_SERVER_PORT: "5432"
@@ -32,21 +55,32 @@ zabbix:
       POSTGRES_PASSWORD: "zabbix"
       POSTGRES_DB: "zabbix"
 
+  zabbixweb:
+    DB_SERVER_HOST: "obsb-postgresql"
+    DB_SERVER_PORT: 5432
+    POSTGRES_USER: "zabbix"
+    POSTGRES_PASSWORD: "zabbix"
+    POSTGRES_DB: "zabbix"
+
   proxy:
     enabled: true
 
   database:
     type: postgresql
 
-  # ✔ REAL OVERRIDE PATH for PostgreSQL (inside Zabbix chart)
+  # REAL override path for PostgreSQL inside Zabbix chart
   postgresql:
     enabled: true
 
     image:
       registry: docker.io
       repository: bitnami/postgresql
-      tag: "15.6.0-debian-12-r7"
+      tag: "latest"
       pullPolicy: IfNotPresent
+
+    global:
+      imagePullSecrets:
+        - dockerhub-secret
 
     auth:
       username: zabbix
@@ -59,7 +93,6 @@ zabbix:
         storageClass: "standard"
         size: 1Gi
 
-
 # ============================================================
 # OPENSEARCH
 # ============================================================
@@ -69,6 +102,10 @@ opensearch:
 
   replicas: 1
   clusterName: "obsb-opensearch"
+
+  extraEnvs:
+    - name: OPENSEARCH_INITIAL_ADMIN_PASSWORD
+      value: "Zx9@gZXWJwYSVvKp7!"
 
   sysctlInit:
     enabled: false
@@ -93,7 +130,6 @@ opensearch:
 
   opensearchJavaOpts: "-Xms512m -Xmx512m"
 
-
 # ============================================================
 # OPENSEARCH DASHBOARDS
 # ============================================================
@@ -111,7 +147,6 @@ dashboards:
     requests:
       cpu: 100m
       memory: 256Mi
-
 
 # ============================================================
 # LOGSTASH (with correct OpenSearch plugin)
@@ -147,7 +182,6 @@ logstash:
         port: 5044
         targetPort: 5044
 
-
 # ============================================================
 # TRIVY SCANNER
 # ============================================================
@@ -173,14 +207,12 @@ trivy:
       - obsb-core
     outputDir: /results
 
-
 # ============================================================
 # LOGGING (Fluent Bit / logshipper)
 # ============================================================
 
 logging:
   enabled: true
-
 
 # ============================================================
 # STACKS (EXAMPLE COMMENTED)
@@ -197,7 +229,6 @@ logging:
 #       enabled: true
 
 stacks: []
-
 
 # ============================================================
 # INGRESS
