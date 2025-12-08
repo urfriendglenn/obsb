@@ -8,8 +8,9 @@ metadata:
 data:
   logstash.conf: |
     input {
-      beats {
+      tcp {
         port => 5044
+        codec => json_lines
       }
     }
 
@@ -27,7 +28,7 @@ data:
     output {
       opensearch {
         hosts => ["http://{{ .Values.opensearch.host | default "obsb-opensearch" }}:9200"]
-        index => "logs-%{obsb_stack}-%{+YYYY.MM.dd}"
+        index => "logs-k8s-%{+YYYY.MM.dd}"
         user => "{{ .Values.opensearch.username | default "" }}"
         password => "{{ .Values.opensearch.password | default "" }}"
         ssl => false

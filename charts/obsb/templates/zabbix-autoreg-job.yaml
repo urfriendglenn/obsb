@@ -1,0 +1,101 @@
+{{- if and .Values.zabbix.enabled .Values.zabbix.autoreg.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: zabbix-autoreg
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "obsb.labels" . | nindent 4 }}
+spec:
+  ttlSecondsAfterFinished: 300
+  template:
+    metadata:
+      labels:
+        {{- include "obsb.labels" . | nindent 8 }}
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: zabbix-autoreg
+          image: alpine:3.20
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -euo pipefail
+              apk add --no-cache curl jq >/dev/null
+
+              api="{{ .Values.zabbix.autoreg.apiUrl }}"
+              user="{{ .Values.zabbix.autoreg.user }}"
+              pass="{{ .Values.zabbix.autoreg.password }}"
+              actions='{{ toJson .Values.zabbix.autoreg.actions }}'
+
+              CURL_OPTS="--fail --silent --show-error --connect-timeout 5 --max-time 20"
+
+              echo "Waiting for Zabbix web to be reachable..."
+              for i in $(seq 1 30); do
+                if curl $CURL_OPTS -o /dev/null -w "%{http_code}" "$api" >/tmp/httpcode 2>/tmp/err && grep -qE '^(200|405)$' /tmp/httpcode; then
+                  echo "Zabbix web is reachable."
+                  break
+                fi
+                echo "Zabbix web not ready yet (attempt $i/30), retrying in 5s..."
+                sleep 5
+              done
+
+              echo "Logging in to Zabbix API at ${api}"
+              auth=$(curl $CURL_OPTS -X POST "$api" \
+                -H 'Content-Type: application/json' \
+                -d "{\"jsonrpc\":\"2.0\",\"method\":\"user.login\",\"params\":{\"user\":\"${user}\",\"password\":\"${pass}\"},\"id\":1,\"auth\":null}" | jq -r .result)
+              if [ -z "$auth" ] || [ "$auth" = "null" ]; then
+                echo "Failed to authenticate to Zabbix API"; exit 1
+              fi
+
+              ensure_action() {
+                name="$1"; metadata="$2"; templates_json="$3"
+                echo "Ensuring autoreg action: ${name} (metadata contains '${metadata}')"
+
+                existing=$(curl -s -X POST "$api" -H 'Content-Type: application/json' \
+                  -d "{\"jsonrpc\":\"2.0\",\"method\":\"action.get\",\"params\":{\"filter\":{\"name\":\"${name}\"}},\"auth\":\"${auth}\",\"id\":3}" | jq '.result | length')
+                if [ "$existing" -gt 0 ]; then
+                  echo "Action '${name}' already exists, skipping"
+                  return
+                fi
+
+                tmpl_resp=$(curl -s -X POST "$api" -H 'Content-Type: application/json' \
+                  -d "{\"jsonrpc\":\"2.0\",\"method\":\"template.get\",\"params\":{\"output\":[\"templateid\",\"name\"],\"filter\":{\"name\":${templates_json}}},\"auth\":\"${auth}\",\"id\":2}")
+                tmpl_ids=$(echo "$tmpl_resp" | jq -r '.result[]?.templateid')
+                if [ -z "$tmpl_ids" ]; then
+                  echo "No templates found for action '${name}'."; exit 1
+                fi
+
+                optemplate=$(echo "$tmpl_ids" | jq -R '{templateid:.}' | jq -s .)
+
+                payload=$(jq -nc --arg name "$name" --arg meta "$metadata" --argjson optemplate "$optemplate" --arg auth "$auth" '{
+                  jsonrpc:"2.0",
+                  method:"action.create",
+                  params:{
+                    name:$name,
+                    eventsource:2,
+                    status:0,
+                    filter:{
+                      evaltype:0,
+                      conditions:[{conditiontype:24,operator:2,value:$meta}]
+                    },
+                    operations:[
+                      {operationtype:2},
+                      {operationtype:6, optemplate:$optemplate}
+                    ]
+                  },
+                  auth:$auth,
+                  id:4
+                }')
+                curl $CURL_OPTS -X POST "$api" -H 'Content-Type: application/json' -d "$payload" | jq .
+              }
+
+              echo "$actions" | jq -c '.[]' | while read -r row; do
+                name=$(echo "$row" | jq -r '.name')
+                metadata=$(echo "$row" | jq -r '.metadata')
+                templates_json=$(echo "$row" | jq '.templates')
+                ensure_action "$name" "$metadata" "$templates_json"
+              done
+              echo "Done"
+{{- end }}

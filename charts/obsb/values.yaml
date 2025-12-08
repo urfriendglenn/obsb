@@ -12,6 +12,25 @@ global:
 
 zabbix:
   enabled: true
+  # Allow connections from server/proxy.
+  serverHost: "obsb-zabbix-zabbix-server"
+  agent:
+    metadata: "k8s"           # Autoregistration metadata sent by agents
+    hostnameFromNode: true    # If true, use node name as hostname; else use stack name
+  autoreg:
+    enabled: true
+    apiUrl: "http://obsb-zabbix-zabbix-web/api_jsonrpc.php"
+    user: "Admin"
+    password: "zabbix"
+    actions:
+      - name: "Autoreg K8s"
+        metadata: "k8s"
+        templates:
+          - "Linux by Zabbix agent active"
+      - name: "Autoreg OpenSearch"
+        metadata: "opensearch"
+        templates:
+          - "Linux by Zabbix agent active"
 
   imagePullSecrets:
     - name: dockerhub-secret
@@ -77,6 +96,22 @@ zabbix:
       pullPolicy: IfNotPresent
       tag: "ubuntu-6.0.0"
 
+  # Allow the Zabbix server to query the Kubernetes API for autodiscovery/health checks.
+  kubernetes:
+    enabled: true
+    createServiceAccount: true
+    # Dedicated ServiceAccount for discovery; see templates/zabbix-k8s-rbac.yaml
+    serviceAccountName: zabbix-k8s
+    clusterRole:
+      create: true
+      rules:
+        - apiGroups: [""]
+          resources: ["pods", "services", "endpoints", "nodes", "namespaces"]
+          verbs: ["get", "list", "watch"]
+        - apiGroups: ["apps"]
+          resources: ["deployments", "statefulsets", "daemonsets", "replicasets"]
+          verbs: ["get", "list", "watch"]
+
   database:
     type: postgresql
 
@@ -87,7 +122,7 @@ zabbix:
     image:
       registry: docker.io
       repository: bitnami/postgresql
-      tag: "latest"        # keep preloaded image; pin to available version for Kind
+      tag: "latest"                 # revert to known-good pullable tag (14.x tag not found)
       pullPolicy: IfNotPresent
 
     global:
@@ -186,14 +221,15 @@ logstash:
   logstashPipeline:
     logstash.conf: |
       input {
-        beats {
+        tcp {
           port => 5044
+          codec => json_lines
         }
       }
       output {
         opensearch {
           hosts => ["http://obsb-opensearch:9200"]
-          index => "logs-%{+YYYY.MM.dd}"
+          index => "logs-k8s-%{+YYYY.MM.dd}"
         }
       }
 
@@ -235,6 +271,20 @@ trivy:
 
 logging:
   enabled: true
+  fluentBit:
+    image: cr.fluentbit.io/fluent/fluent-bit:2.2
+    serviceAccount:
+      create: true
+      name: logshipper
+    clusterRole:
+      create: true
+    collectAllNamespaces: true       # tail /var/log/containers/*.log across namespaces
+    multilineParser: docker
+    output:
+      host: obsb-logstash
+      port: 5044
+      tls: false
+    resources: {}
 
 # ============================================================
 # STACKS (EXAMPLE COMMENTED)
@@ -250,7 +300,28 @@ logging:
 #     security:
 #       enabled: true
 
-stacks: []
+stacks:
+  - name: "cluster"
+    namespace: "obsb-core"
+    logs:
+      enabled: true
+      multiline:
+        pattern: "docker"
+    metrics:
+      enabled: true
+      mode: "daemonset"
+      zabbixHostGroups:
+        - "kubernetes"
+  - name: "opensearch"
+    namespace: "obsb-core"
+    logs:
+      enabled: true
+    metrics:
+      enabled: true
+      mode: "daemonset"
+      zabbixHostGroups:
+        - "opensearch"
+      metadata: "opensearch"
 
 # ============================================================
 # INGRESS

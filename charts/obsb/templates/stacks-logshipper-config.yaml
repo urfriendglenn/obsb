@@ -21,12 +21,16 @@ data:
     {{- end }}
 
     {{- range .Values.stacks }}
-    {{- if .logs.enabled }}
+    {{- if and .logs .logs.enabled }}
+    {{- $mlparser := ($.Values.logging.fluentBit.multilineParser | default "docker") }}
+    {{- if and .logs.multiline .logs.multiline.pattern }}
+    {{- $mlparser = .logs.multiline.pattern }}
+    {{- end }}
     [INPUT]
         Name              tail
         Path              /var/log/containers/*{{ .namespace }}*.log
         Tag               {{ .name }}.*
-        multiline.parser  {{ .logs.multiline.pattern | default ($.Values.logging.fluentBit.multilineParser | default "docker") }}
+        multiline.parser  {{ $mlparser }}
         Mem_Buf_Limit     10MB
         Skip_Long_Lines   On
     {{- end }}
